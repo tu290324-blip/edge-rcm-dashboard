@@ -5,13 +5,6 @@ from oauth2client.service_account import ServiceAccountCredentials
 from datetime import datetime
 import json
 
-# Try importing win32com for local Windows Outlook Classic integration
-try:
-    import win32com.client
-    WIN32_AVAILABLE = True
-except ImportError:
-    WIN32_AVAILABLE = False
-
 st.set_page_config(page_title="Edge RCM - Smart Client Intelligence Dashboard", layout="wide")
 
 st.sidebar.markdown("---")
@@ -20,30 +13,30 @@ selected_lang = st.sidebar.selectbox("🌐 Select Language / زبان منتخب
 t = {
     "English": {
         "title": "🩺 Edge RCM - Smart Client Intelligence Dashboard",
-        "subtitle": "Centralized hub with complete client history, automated email sync, and smart templates.",
+        "subtitle": "Centralized hub with complete client history and Google Sheets synchronization.",
         "auth": "🔑 Authentication Setup",
         "upload": "Upload your credentials.json file",
         "nav": "Navigation",
         "menu_search": "Client History & Smart Search",
-        "menu_email": "Smart Email / SMS Templates & Outlook Classic Sync",
+        "menu_email": "Outlook Sync & Smart Templates",
         "menu_update": "Direct Notes & History Manager",
         "search_header": "🔍 Client Search & Complete History",
         "search_input": "Enter Client Name, NPI, or Email:",
-        "template_header": "✉️ AI Smart Template Generator & Outlook Classic Sync",
+        "template_header": "✉️ Outlook Email Sync & Google Sheet Updater",
         "update_header": "✍️ Direct Notes & History Manager"
     },
     "Urdu": {
         "title": "🩺 ایج آر سی ایم - سمارٹ کلائنٹ انٹیلیجنس ڈیش بورڈ",
-        "subtitle": "مکمل کلائنٹ ہسٹری، آٹومیٹڈ ای میل سنک اور سمارٹ ٹیمپلیٹس کے ساتھ مرکزی نظام۔",
+        "subtitle": "مکمل کلائنٹ ہسٹری اور گوگل شیٹس سنکرونाइजیشن کے ساتھ مرکزی نظام۔",
         "auth": "🔑 تصدیق (Authentication)",
         "upload": "اپنی credentials.json فائل اپ لوڈ کریں",
         "nav": "نیویگیشن",
         "menu_search": "کلائنٹ ہسٹری اور سمارٹ تلاش",
-        "menu_email": "سمارٹ ای میل / ایس ایم ایس ٹیمپلیٹس اور آؤٹ لُک کلاسیک سنک",
+        "menu_email": "آؤٹ لُک سنک اور سمارٹ ٹیمپلیٹس",
         "menu_update": "نوٹس اور ہسٹری مینیجر",
         "search_header": "🔍 کلائنٹ تلاش اور مکمل ہسٹری",
         "search_input": "کلائنٹ کا نام، NPI، یا ای میل درج کریں:",
-        "template_header": "✉️️ اے آئی سمارٹ ٹیمپلیٹ جنیریٹر اور آؤٹ لُک کلاسیک سنک",
+        "template_header": "✉️ آؤٹ لُک ای میل سنک اور گوگل شیٹ اپڈیٹر",
         "update_header": "✍ ڈائریکٹ نوٹس اور ہسٹری اپڈیٹر"
     }
 }
@@ -65,7 +58,7 @@ def init_connection(creds_file):
 
 SHEET_NAME = "EDGE RCM LEADS 2026" 
 
-@st.cache_data(ttl=60)
+@st.cache_data(ttl=30)
 def load_all_sheets_data(file_obj):
     try:
         file_obj.seek(0)
@@ -151,75 +144,50 @@ if uploaded_file is not None:
         elif menu == lang["menu_email"]:
             st.header(lang["template_header"])
             
-            with st.expander("📥 Outlook Classic Live Inbox Sync & Save to Sheet", expanded=True):
-                st.info("Make sure Outlook Classic desktop app is open on your Windows PC to fetch live threads directly.")
+            with st.expander("📥 Email Sync & Google Sheet Direct Logger", expanded=True):
+                st.info("Paste your Outlook email thread summary below or log recent client discussions to instantly update your Google Sheet.")
                 
-                default_search_email = "provider@practice.com"
-                provider_email_input = st.text_input("Enter Provider Email to Fetch from Outlook Classic:", value=default_search_email)
+                name_col = 'NAME' if 'NAME' in df.columns else df.columns[0]
+                client_list = df[name_col].dropna().unique()
+                target_client_sync = st.selectbox("Select Client for Email Sync:", client_list, key="sync_client_select")
                 
-                if st.button("Fetch Emails from Outlook Classic"):
-                    if not WIN32_AVAILABLE:
-                        st.error("pywin32 library is only supported when running locally on Windows with Outlook Classic installed.")
-                    else:
+                email_content_input = st.text_area("Paste Outlook Email Thread / Discussion Summary:", height=150, placeholder="Paste email details or conversation notes here...")
+                
+                if st.button("🚀 Sync & Save directly to Google Sheet CALL NOTES"):
+                    if email_content_input:
                         try:
-                            outlook = win32com.client.Dispatch("Outlook.Application").GetNamespace("MAPI")
-                            inbox = outlook.GetDefaultFolder(6)  # Inbox folder
-                            messages = inbox.Items
-                            messages = messages.Restrict(f"[SenderEmailAddress] = '{provider_email_input}'")
-                            
-                            fetched_summary = ""
-                            count = 0
-                            for msg in list(messages)[:3]:
-                                fetched_summary += f"\n- [{msg.ReceivedTime}] Subject: {msg.Subject}\n  Snippet: {msg.Body[:120]}...\n"
-                                count += 1
-                                
-                            if count > 0:
-                                st.success(f"Successfully fetched {count} email thread(s) from Outlook Classic!")
-                                st.session_state['fetched_email_text'] = fetched_summary
-                            else:
-                                st.warning(f"No emails found from '{provider_email_input}' in your Outlook Classic inbox.")
-                        except Exception as e:
-                            st.error(f"Outlook Classic Error: Ensure Outlook Classic is running. Details: {e}")
-
-                if 'fetched_email_text' in st.session_state and st.session_state['fetched_email_text']:
-                    st.text_area("Fetched Email Threads Preview:", value=st.session_state['fetched_email_text'], height=130)
-                    
-                    name_col = 'NAME' if 'NAME' in df.columns else df.columns[0]
-                    target_client_for_email = st.selectbox("Select Client to Link & Save These Emails:", df[name_col].dropna().unique(), key="client_email_save_selectbox")
-                    
-                    if st.button("💾 Save Synced Emails to Google Sheet Notes"):
-                        try:
-                            client_row = df[df[name_col] == target_client_for_email].iloc[0]
+                            # Find client current row data
+                            client_row = df[df[name_col] == target_client_sync].iloc[0]
                             existing_notes = str(client_row.get('CALL NOTES', ''))
-                            current_date = datetime.now().strftime("%Y-%m-%d %H:%M")
+                            current_timestamp = datetime.now().strftime("%Y-%m-%d %H:%M")
                             
-                            new_email_note = f"\n[{current_date} - Outlook Synced Email]:\n{st.session_state['fetched_email_text']}"
-                            updated_notes = existing_notes + new_email_note
+                            # Formulate updated notes
+                            formatted_note = f"\n[{current_timestamp} - Synced Email/Note]:\n{email_content_input}"
+                            updated_full_notes = existing_notes + formatted_note
                             
-                            # Update local dataframe
-                            df.loc[df[name_col] == target_client_for_email, 'CALL NOTES'] = updated_notes
+                            # Update Google Sheet Worksheet directly
+                            ws_target = spreadsheet.worksheets()[0] # First worksheet
+                            cell_match = ws_target.find(target_client_sync)
                             
-                            # Update Google Sheet
-                            worksheet_to_update = spreadsheet.worksheet(spreadsheet.worksheets()[0].title)
-                            cell = worksheet_to_update.find(target_client_for_email)
-                            if cell:
-                                header_row = worksheet_to_update.row_values(1)
-                                header_row_upper = [h.strip().upper() for h in header_row]
-                                if 'CALL NOTES' in header_row_upper:
-                                    col_idx = header_row_upper.index('CALL NOTES') + 1
-                                    worksheet_to_update.update_cell(cell.row, col_idx, updated_notes)
-                                    st.success(f"Successfully saved synced email history to Google Sheet for {target_client_for_email}!")
+                            if cell_match:
+                                header_vals = [h.strip().upper() for h in ws_target.row_values(1)]
+                                if 'CALL NOTES' in header_vals:
+                                    col_index = header_vals.index('CALL NOTES') + 1
+                                    ws_target.update_cell(cell_match.row, col_index, updated_full_notes)
+                                    st.success(f"Successfully updated Google Sheet! Email notes securely saved for {target_client_sync}.")
+                                    st.text_area("Updated Google Sheet Notes Preview:", value=updated_full_notes, height=120)
                                 else:
-                                    st.error("Could not locate 'CALL NOTES' column in Google Sheet.")
+                                    st.error("Error: 'CALL NOTES' column header not found in the Google Sheet.")
                             else:
-                                st.error("Client name not found in the worksheet cells.")
+                                st.error(f"Could not locate client '{target_client_sync}' in the Google Sheet rows.")
                         except Exception as e:
-                            st.error(f"Failed to update Google Sheet: {e}")
+                            st.error(f"Google Sheet Update Failed: {e}")
+                    else:
+                        st.warning("Please enter or paste email text before syncing.")
 
             st.markdown("---")
-            name_col = 'NAME' if 'NAME' in df.columns else df.columns[0]
-            client_options = df[name_col].dropna().unique()
-            selected_client = st.selectbox("Select Client for Template:", client_options)
+            st.subheader("✉️ AI Smart Template Generator")
+            selected_client = st.selectbox("Select Client for Template:", client_list, key="template_client_select")
             
             if selected_client:
                 client_row = df[df[name_col] == selected_client].iloc[0]
@@ -255,7 +223,6 @@ Edge RCM Team"""
 
                 st.subheader("📝 Context-Aware Draft:")
                 st.code(generated_text, language="markdown")
-                st.success("Template successfully tailored based on past interactions and email context!")
 
         elif menu == lang["menu_update"]:
             st.header(lang["update_header"])
@@ -275,13 +242,21 @@ Edge RCM Team"""
                 
                 if st.button("Save & Append to Client History"):
                     if new_note_input:
-                        current_date = datetime.now().strftime("%Y-%m-%d %H:%M")
-                        updated_notes = existing_notes + f"\n[{current_date}] {new_note_input}"
-                        
-                        df.loc[df[name_col] == target_client, 'CALL NOTES'] = updated_notes
-                        df.loc[df[name_col] == target_client, 'NEXT ACTION'] = next_action_input
-                        
-                        st.success(f"History and notes successfully updated for {target_client}!")
+                        try:
+                            current_date = datetime.now().strftime("%Y-%m-%d %H:%M")
+                            updated_notes = existing_notes + f"\n[{current_date}] {new_note_input}"
+                            
+                            ws_target = spreadsheet.worksheets()[0]
+                            cell_match = ws_target.find(target_client)
+                            if cell_match:
+                                header_vals = [h.strip().upper() for h in ws_target.row_values(1)]
+                                col_index = header_vals.index('CALL NOTES') + 1
+                                ws_target.update_cell(cell_match.row, col_index, updated_notes)
+                                st.success(f"History and notes successfully updated in Google Sheet for {target_client}!")
+                            else:
+                                st.error("Client row not found in sheet.")
+                        except Exception as e:
+                            st.error(f"Failed to update sheet: {e}")
                     else:
                         st.error("Please enter some notes before saving.")
 else:
