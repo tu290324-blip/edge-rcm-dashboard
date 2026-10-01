@@ -3,7 +3,6 @@ import pandas as pd
 import gspread
 from oauth2client.service_account import ServiceAccountCredentials
 from datetime import datetime
-import json
 
 # Page Configuration
 st.set_page_config(page_title="Edge RCM - Smart Client Intelligence Dashboard", layout="wide")
@@ -17,8 +16,6 @@ t = {
     "English": {
         "title": "🩺 Edge RCM - Smart Client Intelligence Dashboard",
         "subtitle": "Centralized hub with complete client history, automated email sync, and smart templates.",
-        "auth_header": "🔑 Authentication Setup",
-        "upload_cred": "Upload your credentials.json file",
         "nav": "Navigation",
         "menu_search": "Client History & Smart Search",
         "menu_email": "Smart Email / SMS Templates & Sync",
@@ -31,8 +28,6 @@ t = {
     "Urdu": {
         "title": "🩺 ایج آر سی ایم - سمارٹ کلائنٹ انٹیلیجنس ڈیش بورڈ",
         "subtitle": "مکمل کلائنٹ ہسٹری، آٹومیٹڈ ای میل سنک اور سمارٹ ٹیمپلیٹس کے ساتھ مرکزی نظام۔",
-        "auth_header": "🔑 تصدیق (Authentication Setup)",
-        "upload_cred": "اپنی credentials.json فائل اپ لوڈ کریں",
         "nav": "نیویگیشن",
         "menu_search": "کلائنٹ ہسٹری اور سمارٹ تلاش",
         "menu_email": "سمارٹ ای میل / ایس ایم ایس ٹیمپلیٹس اور ای میل سنک",
@@ -40,7 +35,7 @@ t = {
         "search_header": "🔍 کلائنٹ تلاش اور مکمل ہسٹری",
         "search_input": "کلائنٹ کا نام، NPI، یا ای میل درج کریں:",
         "template_header": "✉️ اے آئی سمارٹ ٹیمپلیٹ جنیریٹر اور ای میل سنک",
-        "update_header": "✍️ ڈائریکٹ نوٹس اور ہسٹری اپڈیٹر"
+        "update_header": "✍️️ ڈائریکٹ نوٹس اور ہسٹری اپڈیٹر"
     }
 }
 
@@ -49,25 +44,20 @@ lang = t[selected_lang]
 st.title(lang["title"])
 st.markdown(lang["subtitle"])
 
-# Sidebar Authentication
-st.sidebar.header(lang["auth_header"])
-uploaded_file = st.sidebar.file_uploader(lang["upload_cred"], type=["json"])
-
-def init_connection(creds_file):
+def init_connection():
     scope = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
-    creds_dict = json.load(creds_file)
+    creds_dict = dict(st.secrets["gcp_service_account"])
     creds = ServiceAccountCredentials.from_json_keyfile_dict(creds_dict, scope)
     client = gspread.authorize(creds)
     return client
 
 SHEET_NAME = "EDGE RCM LEADS 2026" 
 
-# Load Data from ALL Sheets automatically
+# Load Data from ALL Sheets automatically using Cloud Secrets
 @st.cache_data(ttl=60)
-def load_all_sheets_data(file_obj):
+def load_all_sheets_data():
     try:
-        file_obj.seek(0)
-        client = init_connection(file_obj)
+        client = init_connection()
         spreadsheet = client.open(SHEET_NAME)
         worksheets = spreadsheet.worksheets() 
         
@@ -101,8 +91,10 @@ def load_all_sheets_data(file_obj):
         ]
         return pd.DataFrame(columns=columns), None
 
-if uploaded_file is not None:
-    df, spreadsheet = load_all_sheets_data(uploaded_file)
+df, spreadsheet = load_all_sheets_data()
+
+if not df.empty:
+    st.sidebar.success("✅ Connected to Google Sheets via Cloud Secrets!")
     st.write(f"📊 **Total combined records loaded:** {len(df)}")
 
     menu = st.sidebar.selectbox(lang["nav"], [lang["menu_search"], lang["menu_email"], lang["menu_update"]])
@@ -111,7 +103,7 @@ if uploaded_file is not None:
         st.header(lang["search_header"])
         search_query = st.text_input(lang["search_input"])
         
-        if search_query and not df.empty:
+        if search_query:
             mask = False
             for col in ['NAME', 'NPI', 'EMAIL']:
                 if col in df.columns:
@@ -148,7 +140,6 @@ if uploaded_file is not None:
     elif menu == lang["menu_email"]:
         st.header(lang["template_header"])
         
-        # Email Sync Simulation section
         with st.expander("📥 Outlook / Gmail Inbox Sync Settings"):
             st.info("Connect your corporate email to auto-fetch provider threads and sync past history into client notes.")
             sync_email_input = st.text_input("Enter Email to Sync Last Threads:", value="provider@practice.com")
@@ -156,12 +147,11 @@ if uploaded_file is not None:
                 st.success(f"Successfully synced recent email threads for {sync_email_input}!")
 
         name_col = 'NAME' if 'NAME' in df.columns else df.columns[0]
-        client_options = df[name_col].dropna().unique() if not df.empty else ["No Clients Yet"]
+        client_options = df[name_col].dropna().unique()
         selected_client = st.selectbox("Select Client for Template:", client_options)
         
-        if selected_client and selected_client != "No Clients Yet":
+        if selected_client:
             client_row = df[df[name_col] == selected_client].iloc[0]
-            c_email = client_row.get('EMAIL', 'client@example.com')
             c_spec = client_row.get('SPECIALITY', 'Medical Practice')
             c_notes = client_row.get('CALL NOTES', 'Initial discussion completed.')
             
@@ -200,10 +190,10 @@ Edge RCM Team"""
         st.header(lang["update_header"])
         
         name_col = 'NAME' if 'NAME' in df.columns else df.columns[0]
-        client_options = df[name_col].dropna().unique() if not df.empty else ["No Clients Yet"]
+        client_options = df[name_col].dropna().unique()
         target_client = st.selectbox("Select Client to Update Notes:", client_options)
         
-        if target_client and target_client != "No Clients Yet":
+        if target_client:
             client_row = df[df[name_col] == target_client].iloc[0]
             existing_notes = str(client_row.get('CALL NOTES', ''))
             
@@ -224,4 +214,4 @@ Edge RCM Team"""
                 else:
                     st.error("Please enter some notes before saving.")
 else:
-    st.info("👈 Please upload your `credentials.json` file using the sidebar to connect with Google Sheets.")
+    st.error("Could not load data from Google Sheets. Please check your credentials in Streamlit Cloud Secrets.")
