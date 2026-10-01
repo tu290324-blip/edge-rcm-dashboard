@@ -22,7 +22,7 @@ t = {
         "menu_update": "Direct Notes & History Manager",
         "search_header": "🔍 Client Search & Complete History",
         "search_input": "Enter Client Name, NPI, or Email:",
-        "template_header": "✉️ AI Smart Template Generator & Email Sync",
+        "template_header": "✉️️ AI Smart Template Generator & Email Sync",
         "update_header": "✍️ Direct Notes & History Manager"
     },
     "Urdu": {
@@ -35,7 +35,7 @@ t = {
         "search_header": "🔍 کلائنٹ تلاش اور مکمل ہسٹری",
         "search_input": "کلائنٹ کا نام، NPI، یا ای میل درج کریں:",
         "template_header": "✉️ اے آئی سمارٹ ٹیمپلیٹ جنیریٹر اور ای میل سنک",
-        "update_header": "✍️️ ڈائریکٹ نوٹس اور ہسٹری اپڈیٹر"
+        "update_header": "✍ ڈائریکٹ نوٹس اور ہسٹری اپڈیٹر"
     }
 }
 
