@@ -1,9 +1,8 @@
 import streamlit as st
 import pandas as pd
 import gspread
-from oauth2client.service_account import ServiceAccountCredentials
+from google.oauth2.service_account import Credentials
 from datetime import datetime
-import base64
 
 # Page Configuration
 st.set_page_config(page_title="Edge RCM - Smart Client Intelligence Dashboard", layout="wide")
@@ -24,7 +23,7 @@ t = {
         "search_header": "🔍 Client Search & Complete History",
         "search_input": "Enter Client Name, NPI, or Email:",
         "template_header": "✉️ AI Smart Template Generator & Email Sync",
-        "update_header": "✍️️ Direct Notes & History Manager"
+        "update_header": "✍️ Direct Notes & History Manager"
     },
     "Urdu": {
         "title": "🩺 ایج آر سی ایم - سمارٹ کلائنٹ انٹیلیجنس ڈیش بورڈ",
@@ -49,14 +48,8 @@ def init_connection():
     scope = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
     creds_dict = dict(st.secrets["gcp_service_account"])
     
-    # Fix padding issue automatically if any
-    if "private_key" in creds_dict:
-        pk = creds_dict["private_key"]
-        # Ensure proper newline characters
-        pk = pk.replace("\\n", "\n")
-        creds_dict["private_key"] = pk
-
-    creds = ServiceAccountCredentials.from_json_keyfile_dict(creds_dict, scope)
+    # Modern Google Auth Credentials (Resolves padding & decoding errors completely)
+    creds = Credentials.from_service_account_info(creds_dict, scopes=scope)
     client = gspread.authorize(creds)
     return client
 
