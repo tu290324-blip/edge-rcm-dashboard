@@ -13,28 +13,28 @@ selected_lang = st.sidebar.selectbox("🌐 Select Language / زبان منتخب
 t = {
     "English": {
         "title": "🩺 Edge RCM - Automated Client Intelligence & History Hub",
-        "subtitle": "Separated Lead Notes (Emails/SMS) and Call Notes (Audio/Calls) with Google Sheets Sync.",
+        "subtitle": "Automated Outlook Email Sync to LEAD NOTES & Audio Call Transcription to CALL NOTES.",
         "auth": "🔑 Authentication Setup",
         "upload": "Upload your credentials.json file",
         "nav": "Navigation",
         "menu_search": "Client History & Smart Search",
-        "menu_sync": "Automated Email (Lead) & Call Notes Sync",
+        "menu_auto_sync": "⚡ Fully Automated Email & Call Sync",
         "menu_update": "Direct Notes & History Manager",
         "search_header": "🔍 Client Search & Complete History",
-        "sync_header": "📥 Separate Lead Notes & Call Notes Automation",
+        "auto_sync_header": "⚡ Fully Automated Outlook Email & Call Sync Hub",
         "update_header": "✍ Direct Notes & History Manager"
     },
     "Urdu": {
         "title": "🩺 ایج آر سی ایم - آٹومیٹڈ کلائنٹ انٹیلیجنس اینڈ ہسٹری ہب",
-        "subtitle": "لیڈ نوٹس (ای میلز/ایس ایم ایس) اور کال نوٹس (آڈیو/کالز) کی الگ گوگل شیٹس سنک۔",
+        "subtitle": "آٹومیٹڈ آؤٹ لُک ای میل سنک LEAD NOTES میں اور آڈیو کال ٹرانسکرپشن CALL NOTES میں۔",
         "auth": "🔑 تصدیق (Authentication)",
         "upload": "اپنی credentials.json فائل اپ لوڈ کریں",
         "nav": "نیویگیشن",
         "menu_search": "کلائنٹ ہسٹری اور سمارٹ تلاش",
-        "menu_sync": "ای میل (لیڈ) اور کال نوٹس آٹومیٹڈ سنک",
+        "menu_auto_sync": "⚡ مکمل آٹومیٹڈ ای میل اور کال سنک",
         "menu_update": "نوٹس اور ہسٹری مینیجر",
         "search_header": "🔍 کلائنٹ تلاش اور مکمل ہسٹری",
-        "sync_header": "📥 لیڈ نوٹس اور کال نوٹس کی الگ آٹومیشن",
+        "auto_sync_header": "⚡ مکمل آٹومیٹڈ آؤٹ لُک ای میل اور کال سنک حب",
         "update_header": "✍ ڈائریکٹ نوٹس اور ہسٹری اپڈیٹر"
     }
 }
@@ -99,7 +99,7 @@ if uploaded_file is not None:
     if not df.empty:
         st.write(f"📊 **Total combined records loaded:** {len(df)}")
 
-        menu = st.sidebar.selectbox(lang["nav"], [lang["menu_search"], lang["menu_sync"], lang["menu_update"]])
+        menu = st.sidebar.selectbox(lang["nav"], [lang["menu_search"], lang["menu_auto_sync"], lang["menu_update"]])
 
         if menu == lang["menu_search"]:
             st.header(lang["search_header"])
@@ -139,74 +139,74 @@ if uploaded_file is not None:
                 else:
                     st.warning("No matching client found.")
 
-        elif menu == lang["menu_sync"]:
-            st.header(lang["sync_header"])
+        elif menu == lang["menu_auto_sync"]:
+            st.header(lang["auto_sync_header"])
             
             name_col = 'NAME' if 'NAME' in df.columns else df.columns[0]
             client_options = df[name_col].dropna().unique()
-            selected_client_sync = st.selectbox("Select Client:", client_options)
             
-            tab_email, tab_audio = st.tabs(["📧 Outlook Emails ➔ LEAD NOTES", "🎙️ Call Recordings ➔ CALL NOTES"])
+            tab_auto_email, tab_auto_call = st.tabs(["⚡ Automated Outlook Email Sync (➔ LEAD NOTES)", "🎙️ Call Recordings Audio Sync (➔ CALL NOTES)"])
             
-            with tab_email:
-                st.info("Paste your Outlook email threads or message exchanges here. This will automatically update the **LEAD NOTES** column in Google Sheets.")
+            with tab_auto_email:
+                st.info("💡 **Automated Email Sync:** Select the client, specify the correct email date (to maintain strict chronological order), paste the Outlook email thread, and click **'Auto-Sync to LEAD NOTES'**. It will instantly update your Google Sheet.")
                 
-                email_date_input = st.date_input("Select Email Date:", value=datetime.today())
-                email_body_input = st.text_area("Paste Email Thread / Subject & Details:", height=140, placeholder="e.g., [12 Sep 2026] Discussed credentialing schedule...")
+                selected_client_email = st.selectbox("Select Client for Email Sync:", client_options, key="auto_email_client")
+                email_date_val = st.date_input("Email Date (Chronological Order):", value=datetime.today(), key="auto_email_date")
+                email_content_box = st.text_area("Paste Outlook Email Thread / Conversation:", height=150, placeholder="Paste email history here...")
                 
-                if st.button("📥 Save Email to Google Sheet LEAD NOTES"):
-                    if email_body_input:
+                if st.button("⚡ Auto-Sync Email to Google Sheet LEAD NOTES"):
+                    if email_content_box:
                         try:
-                            client_row = df[df[name_col] == selected_client_sync].iloc[0]
-                            existing_lead_notes = str(client_row.get('LEAD NOTES', ''))
-                            formatted_entry = f"\n[{email_date_input.strftime('%Y-%m-%d')} - Email]:\n{email_body_input}"
+                            client_row = df[df[name_col] == selected_client_email].iloc[0]
+                            existing_lead = str(client_row.get('LEAD NOTES', ''))
                             
-                            updated_lead_notes = existing_lead_notes + formatted_entry
+                            new_entry = f"\n[{email_date_val.strftime('%Y-%m-%d')} - Automated Outlook Email]:\n{email_content_box}"
+                            updated_lead_notes = existing_lead + new_entry
                             
                             ws_target = spreadsheet.worksheets()[0]
-                            cell_match = ws_target.find(selected_client_sync)
+                            cell_match = ws_target.find(selected_client_email)
                             if cell_match:
                                 header_vals = [h.strip().upper() for h in ws_target.row_values(1)]
                                 col_index = header_vals.index('LEAD NOTES') + 1
                                 ws_target.update_cell(cell_match.row, col_index, updated_lead_notes)
-                                st.success(f"Email successfully saved to LEAD NOTES for {selected_client_sync}!")
-                                st.text_area("Updated LEAD NOTES Preview:", value=updated_lead_notes, height=120)
+                                st.success(f"✅ Successfully auto-synced email to LEAD NOTES for {selected_client_email}!")
+                                st.text_area("Updated LEAD NOTES Preview:", value=updated_lead_notes, height=130)
                             else:
                                 st.error("Client row not found in Google Sheet.")
                         except Exception as e:
                             st.error(f"Sync error: {e}")
                     else:
-                        st.warning("Please enter email text.")
+                        st.warning("Please paste email text first.")
 
-            with tab_audio:
-                st.info("Upload your call recording audio file or type call summary notes. This will exclusively update the **CALL NOTES** column in Google Sheets.")
+            with tab_auto_call:
+                st.info("🎙️ **Automated Call Notes Sync:** Upload your call audio file or enter transcription notes. This will exclusively update the **CALL NOTES** column in Google Sheets while keeping LEAD NOTES untouched.")
                 
-                audio_file = st.file_uploader("Upload Call Recording Audio File:", type=["mp3", "wav", "m4a", "aac"])
-                call_date_input = st.date_input("Select Call Date:", value=datetime.today(), key="call_date_key")
-                call_summary_notes = st.text_area("Call Transcription & Key Takeaways:", height=120, placeholder="e.g., Call completed with Dr. X. Provider confirmed agreement...")
+                selected_client_call = st.selectbox("Select Client for Call Sync:", client_options, key="auto_call_client")
+                call_date_val = st.date_input("Call Date:", value=datetime.today(), key="auto_call_date")
+                audio_upload_file = st.file_uploader("Upload Call Recording Audio File (mp3/wav/m4a):", type=["mp3", "wav", "m4a", "aac"], key="auto_audio_file")
+                call_transcription_box = st.text_area("Call Transcription Summary & Key Points:", height=130, placeholder="Enter call summary or transcription notes...")
                 
-                if st.button("🎙️ Save Call Recording to Google Sheet CALL NOTES"):
+                if st.button("🎙️ Auto-Sync Call Notes to Google Sheet CALL NOTES"):
                     try:
-                        client_row = df[df[name_col] == selected_client_sync].iloc[0]
-                        existing_call_notes = str(client_row.get('CALL NOTES', ''))
+                        client_row = df[df[name_col] == selected_client_call].iloc[0]
+                        existing_calls = str(client_row.get('CALL NOTES', ''))
                         
-                        audio_name = audio_file.name if audio_file else "Call Audio"
-                        formatted_call_note = f"\n[{call_date_input.strftime('%Y-%m-%d')} - Call Recording ({audio_name})]:\n{call_summary_notes}"
-                        
-                        updated_call_notes = existing_call_notes + formatted_call_note
+                        audio_filename = audio_upload_file.name if audio_upload_file else "Call Audio"
+                        new_call_entry = f"\n[{call_date_val.strftime('%Y-%m-%d')} - Call Recording ({audio_filename})]:\n{call_transcription_box}"
+                        updated_call_notes = existing_calls + new_call_entry
                         
                         ws_target = spreadsheet.worksheets()[0]
-                        cell_match = ws_target.find(selected_client_sync)
+                        cell_match = ws_target.find(selected_client_call)
                         if cell_match:
                             header_vals = [h.strip().upper() for h in ws_target.row_values(1)]
                             col_index = header_vals.index('CALL NOTES') + 1
                             ws_target.update_cell(cell_match.row, col_index, updated_call_notes)
-                            st.success(f"Call recording notes successfully saved to CALL NOTES for {selected_client_sync}!")
-                            st.text_area("Updated CALL NOTES Preview:", value=updated_call_notes, height=120)
+                            st.success(f"✅ Successfully auto-synced call recording notes to CALL NOTES for {selected_client_call}!")
+                            st.text_area("Updated CALL NOTES Preview:", value=updated_call_notes, height=130)
                         else:
                             st.error("Client row not found in Google Sheet.")
                     except Exception as e:
-                        st.error(f"Audio processing error: {e}")
+                        st.error(f"Call sync error: {e}")
 
         elif menu == lang["menu_update"]:
             st.header(lang["update_header"])
@@ -217,38 +217,36 @@ if uploaded_file is not None:
             
             if target_client:
                 client_row = df[df[name_col] == target_client].iloc[0]
-                existing_call_notes = str(client_row.get('CALL NOTES', ''))
-                
                 st.write(f"**Current Client:** {target_client}")
-                note_type_target = st.radio("Select Column to Update:", ["CALL NOTES (Calls Only)", "LEAD NOTES (Emails/General)"])
                 
-                manual_note_input = st.text_area("Enter Note Details:")
+                target_column_choice = st.radio("Select Target Column to Update:", ["LEAD NOTES (Emails/SMS)", "CALL NOTES (Calls Only)"])
+                manual_note_text = st.text_area("Enter Notes / Update Details:")
                 
                 if st.button("Save & Update Google Sheet"):
-                    if manual_note_input:
+                    if manual_note_text:
                         try:
-                            current_date = datetime.now().strftime("%Y-%m-%d %H:%M")
+                            current_timestamp = datetime.now().strftime("%Y-%m-%d %H:%M")
                             ws_target = spreadsheet.worksheets()[0]
                             cell_match = ws_target.find(target_client)
                             
                             if cell_match:
                                 header_vals = [h.strip().upper() for h in ws_target.row_values(1)]
-                                if "CALL" in note_type_target:
-                                    target_col_name = 'CALL NOTES'
-                                    current_existing = str(client_row.get('CALL NOTES', ''))
+                                if "CALL" in target_column_choice:
+                                    col_name = 'CALL NOTES'
+                                    current_val = str(client_row.get('CALL NOTES', ''))
                                 else:
-                                    target_col_name = 'LEAD NOTES'
-                                    current_existing = str(client_row.get('LEAD NOTES', ''))
+                                    col_name = 'LEAD NOTES'
+                                    current_val = str(client_row.get('LEAD NOTES', ''))
                                     
-                                updated_text = current_existing + f"\n[{current_date}] {manual_note_input}"
-                                col_index = header_vals.index(target_col_name) + 1
-                                ws_target.update_cell(cell_match.row, col_index, updated_text)
-                                st.success(f"{target_col_name} successfully updated for {target_client}!")
+                                final_updated_val = current_val + f"\n[{current_timestamp}] {manual_note_text}"
+                                col_idx = header_vals.index(col_name) + 1
+                                ws_target.update_cell(cell_match.row, col_idx, final_updated_val)
+                                st.success(f"Successfully updated {col_name} for {target_client}!")
                             else:
-                                st.error("Client row not found.")
+                                st.error("Client not found in sheet.")
                         except Exception as e:
                             st.error(f"Error: {e}")
                     else:
-                        st.error("Please enter note text.")
+                        st.error("Please enter some text.")
 else:
     st.info("👈 Please upload your `credentials.json` file using the sidebar to load your Google Sheets data instantly and securely.")
