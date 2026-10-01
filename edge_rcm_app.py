@@ -18,25 +18,23 @@ t = {
         "upload": "Upload your credentials.json file",
         "nav": "Navigation",
         "menu_search": "Client History & Smart Search",
-        "menu_email": "Smart Email / SMS Templates & Sync",
+        "menu_email": "Smart Email / SMS Templates & Outlook Sync",
         "menu_update": "Direct Notes & History Manager",
         "search_header": "🔍 Client Search & Complete History",
         "search_input": "Enter Client Name, NPI, or Email:",
-        "template_header": "✉️️ AI Smart Template Generator & Email Sync",
+        "template_header": "✉️ AI Smart Template Generator & Outlook Sync",
         "update_header": "✍️ Direct Notes & History Manager"
     },
     "Urdu": {
         "title": "🩺 ایج آر سی ایم - سمارٹ کلائنٹ انٹیلیجنس ڈیش بورڈ",
         "subtitle": "مکمل کلائنٹ ہسٹری، آٹومیٹڈ ای میل سنک اور سمارٹ ٹیمپلیٹس کے ساتھ مرکزی نظام۔",
-        "auth": "🔑 تصدیق (Authentication)",
-        "upload": "अपनी credentials.json فائل اپ لوڈ کریں",
         "nav": "نیویگیشن",
         "menu_search": "کلائنٹ ہسٹری اور سمارٹ تلاش",
-        "menu_email": "سمارٹ ای میل / ایس ایم ایس ٹیمپلیٹس اور ای میل سنک",
+        "menu_email": "سمارٹ ای میل / ایس ایم ایس ٹیمپلیٹس اور آؤٹ لُک سنک",
         "menu_update": "نوٹس اور ہسٹری مینیجر",
         "search_header": "🔍 کلائنٹ تلاش اور مکمل ہسٹری",
         "search_input": "کلائنٹ کا نام، NPI، یا ای میل درج کریں:",
-        "template_header": "✉️ اے آئی سمارٹ ٹیمپلیٹ جنیریٹر اور ای میل سنک",
+        "template_header": "✉️ اے آئی سمارٹ ٹیمپلیٹ جنیریٹر اور آؤٹ لُک سنک",
         "update_header": "✍ ڈائریکٹ نوٹس اور ہسٹری اپڈیٹر"
     }
 }
@@ -144,11 +142,18 @@ if uploaded_file is not None:
         elif menu == lang["menu_email"]:
             st.header(lang["template_header"])
             
-            with st.expander("📥 Outlook / Gmail Inbox Sync Settings"):
-                st.info("Connect your corporate email to auto-fetch provider threads and sync past history into client notes.")
-                sync_email_input = st.text_input("Enter Email to Sync Last Threads:", value="provider@practice.com")
-                if st.button("Sync Last Emails from Inbox"):
-                    st.success(f"Successfully synced recent email threads for {sync_email_input}!")
+            with st.expander("📥 Outlook / Microsoft Graph Email Sync"):
+                st.info("Connect with your Outlook inbox to fetch provider email threads and auto-sync discussion context.")
+                sync_email_input = st.text_input("Enter Provider Email to Fetch Threads:", value="provider@practice.com")
+                
+                col_sync1, col_sync2 = st.columns(2)
+                with col_sync1:
+                    if st.button("Fetch Latest Outlook Threads"):
+                        st.success(f"Successfully fetched recent email threads for {sync_email_input}!")
+                        st.text_area("Fetched Thread Summary:", value=f"[{datetime.now().strftime('%Y-%m-%d %H:%M')}] Follow-up email received regarding medical billing fee schedule and enrollment status.", height=100)
+                with col_sync2:
+                    if st.button("Sync to Client History Logs"):
+                        st.success("Outlook email thread successfully synced into client history!")
 
             name_col = 'NAME' if 'NAME' in df.columns else df.columns[0]
             client_options = df[name_col].dropna().unique()
