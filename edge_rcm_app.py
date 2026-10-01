@@ -1,8 +1,9 @@
 import streamlit as st
 import pandas as pd
 import gspread
-from google.oauth2.service_account import Credentials
+from oauth2client.service_account import ServiceAccountCredentials
 from datetime import datetime
+import os
 
 # Page Configuration
 st.set_page_config(page_title="Edge RCM - Smart Client Intelligence Dashboard", layout="wide")
@@ -46,23 +47,27 @@ st.markdown(lang["subtitle"])
 
 def init_connection():
     scope = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
-    creds_dict = dict(st.secrets["gcp_service_account"])
-    
-    # Safe handling of private key newlines
-    if "private_key" in creds_dict:
-        pk = creds_dict["private_key"]
-        creds_dict["private_key"] = pk.replace("\\n", "\n")
-
-    creds = Credentials.from_service_account_info(creds_dict, scopes=scope)
+    # Directly use the credentials.json file stored in the repository
+    creds_file = "credentials.json"
+    if os.path.exists(creds_file):
+        creds = ServiceAccountCredentials.from_json_keyfile_name(creds_file, scope)
+    else:
+        # Fallback if uploaded via secrets or environment
+        st.error("credentials.json file not found in the repository!")
+        return None
     client = gspread.authorize(creds)
     return client
 
 SHEET_NAME = "EDGE RCM LEADS 2026" 
 
+# Load Data from ALL Sheets automatically
 @st.cache_data(ttl=60)
 def load_all_sheets_data():
     try:
         client = init_connection()
+        if not client:
+            return pd.DataFrame(), None
+            
         spreadsheet = client.open(SHEET_NAME)
         worksheets = spreadsheet.worksheets() 
         
@@ -99,7 +104,7 @@ def load_all_sheets_data():
 df, spreadsheet = load_all_sheets_data()
 
 if not df.empty:
-    st.sidebar.success("✅ Connected to Google Sheets via Secrets!")
+    st.sidebar.success("✅ Connected to Google Sheets Successfully!")
     st.write(f"📊 **Total combined records loaded:** {len(df)}")
 
     menu = st.sidebar.selectbox(lang["nav"], [lang["menu_search"], lang["menu_email"], lang["menu_update"]])
@@ -205,7 +210,7 @@ Edge RCM Team"""
             st.write(f"**Current Client:** {target_client} | **Speciality:** {client_row.get('SPECIALITY', 'N/A')}")
             
             new_note_input = st.text_area("Add New Call Note / Synced Email Summary / Follow-up Details:")
-            next_action_input = st.text_input("Set Next Action Date / Task:", value=str(client_row.get('NEXT ACTION', '')))
+            next_action_input = st.text_input("Set NextAction Date / Task:", value=str(client_row.get('NEXT ACTION', '')))
             
             if st.button("Save & Append to Client History"):
                 if new_note_input:
@@ -219,4 +224,4 @@ Edge RCM Team"""
                 else:
                     st.error("Please enter some notes before saving.")
 else:
-    st.error("Could not load data from Google Sheets. Please check your credentials or network connection.")
+    st.error("Could not load data from Google Sheets. Please ensure `credentials.json` is uploaded in your GitHub repository.")
