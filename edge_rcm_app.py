@@ -4,6 +4,7 @@ import gspread
 from oauth2client.service_account import ServiceAccountCredentials
 from datetime import datetime
 import json
+import win32com.client
 
 st.set_page_config(page_title="Edge RCM - Smart Client Intelligence Dashboard", layout="wide")
 
@@ -18,11 +19,11 @@ t = {
         "upload": "Upload your credentials.json file",
         "nav": "Navigation",
         "menu_search": "Client History & Smart Search",
-        "menu_email": "Smart Email / SMS Templates & Outlook Sync",
+        "menu_email": "Smart Email / SMS Templates & Outlook Classic Sync",
         "menu_update": "Direct Notes & History Manager",
         "search_header": "🔍 Client Search & Complete History",
         "search_input": "Enter Client Name, NPI, or Email:",
-        "template_header": "✉️ AI Smart Template Generator & Outlook Sync",
+        "template_header": "✉️ AI Smart Template Generator & Outlook Classic Sync",
         "update_header": "✍️ Direct Notes & History Manager"
     },
     "Urdu": {
@@ -30,11 +31,11 @@ t = {
         "subtitle": "مکمل کلائنٹ ہسٹری، آٹومیٹڈ ای میل سنک اور سمارٹ ٹیمپلیٹس کے ساتھ مرکزی نظام۔",
         "nav": "نیویگیشن",
         "menu_search": "کلائنٹ ہسٹری اور سمارٹ تلاش",
-        "menu_email": "سمارٹ ای میل / ایس ایم ایس ٹیمپلیٹس اور آؤٹ لُک سنک",
+        "menu_email": "سمارٹ ای میل / ایس ایم ایس ٹیمپلیٹس اور آؤٹ لُک کلاسیک سنک",
         "menu_update": "نوٹس اور ہسٹری مینیجر",
         "search_header": "🔍 کلائنٹ تلاش اور مکمل ہسٹری",
         "search_input": "کلائنٹ کا نام، NPI، یا ای میل درج کریں:",
-        "template_header": "✉️ اے آئی سمارٹ ٹیمپلیٹ جنیریٹر اور آؤٹ لُک سنک",
+        "template_header": "✉️ اے آئی سمارٹ ٹیمپلیٹ جنیریٹر اور آؤٹ لُک کلاسیک سنک",
         "update_header": "✍ ڈائریکٹ نوٹس اور ہسٹری اپڈیٹر"
     }
 }
@@ -142,18 +143,32 @@ if uploaded_file is not None:
         elif menu == lang["menu_email"]:
             st.header(lang["template_header"])
             
-            with st.expander("📥 Outlook / Microsoft Graph Email Sync"):
-                st.info("Connect with your Outlook inbox to fetch provider email threads and auto-sync discussion context.")
-                sync_email_input = st.text_input("Enter Provider Email to Fetch Threads:", value="provider@practice.com")
+            with st.expander("📥 Outlook Classic Live Inbox Sync"):
+                st.info("Make sure Outlook Classic desktop app is open on your PC to fetch live threads directly.")
                 
-                col_sync1, col_sync2 = st.columns(2)
-                with col_sync1:
-                    if st.button("Fetch Latest Outlook Threads"):
-                        st.success(f"Successfully fetched recent email threads for {sync_email_input}!")
-                        st.text_area("Fetched Thread Summary:", value=f"[{datetime.now().strftime('%Y-%m-%d %H:%M')}] Follow-up email received regarding medical billing fee schedule and enrollment status.", height=100)
-                with col_sync2:
-                    if st.button("Sync to Client History Logs"):
-                        st.success("Outlook email thread successfully synced into client history!")
+                default_search_email = "provider@practice.com"
+                provider_email_input = st.text_input("Enter Provider Email to Fetch Threads from Outlook Classic:", value=default_search_email)
+                
+                if st.button("Fetch Emails from Outlook Classic"):
+                    try:
+                        outlook = win32com.client.Dispatch("Outlook.Application").GetNamespace("MAPI")
+                        inbox = outlook.GetDefaultFolder(6) # 6 corresponds to Inbox
+                        messages = inbox.Items
+                        messages = messages.Restrict(f"[SenderEmailAddress] = '{provider_email_input}'")
+                        
+                        fetched_summary = ""
+                        count = 0
+                        for msg in list(messages)[:3]:
+                            fetched_summary += f"\n- [{msg.ReceivedTime}] Subject: {msg.Subject}\n  Snippet: {msg.Body[:120]}...\n"
+                            count += 1
+                            
+                        if count > 0:
+                            st.success(f"Successfully fetched {count} email thread(s) from Outlook Classic!")
+                            st.text_area("Fetched Email Threads:", value=fetched_summary, height=140)
+                        else:
+                            st.warning(f"No emails found from '{provider_email_input}' in your Outlook Classic inbox.")
+                    except Exception as e:
+                        st.error(f"Outlook Classic Error: Ensure Outlook is running on Windows. ({e})")
 
             name_col = 'NAME' if 'NAME' in df.columns else df.columns[0]
             client_options = df[name_col].dropna().unique()
