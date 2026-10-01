@@ -3,6 +3,7 @@ import pandas as pd
 import gspread
 from oauth2client.service_account import ServiceAccountCredentials
 from datetime import datetime
+import base64
 
 # Page Configuration
 st.set_page_config(page_title="Edge RCM - Smart Client Intelligence Dashboard", layout="wide")
@@ -22,8 +23,8 @@ t = {
         "menu_update": "Direct Notes & History Manager",
         "search_header": "🔍 Client Search & Complete History",
         "search_input": "Enter Client Name, NPI, or Email:",
-        "template_header": "✉️️ AI Smart Template Generator & Email Sync",
-        "update_header": "✍️ Direct Notes & History Manager"
+        "template_header": "✉️ AI Smart Template Generator & Email Sync",
+        "update_header": "✍️️ Direct Notes & History Manager"
     },
     "Urdu": {
         "title": "🩺 ایج آر سی ایم - سمارٹ کلائنٹ انٹیلیجنس ڈیش بورڈ",
@@ -47,6 +48,14 @@ st.markdown(lang["subtitle"])
 def init_connection():
     scope = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
     creds_dict = dict(st.secrets["gcp_service_account"])
+    
+    # Fix padding issue automatically if any
+    if "private_key" in creds_dict:
+        pk = creds_dict["private_key"]
+        # Ensure proper newline characters
+        pk = pk.replace("\\n", "\n")
+        creds_dict["private_key"] = pk
+
     creds = ServiceAccountCredentials.from_json_keyfile_dict(creds_dict, scope)
     client = gspread.authorize(creds)
     return client
