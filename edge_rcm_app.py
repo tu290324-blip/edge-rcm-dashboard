@@ -4,7 +4,13 @@ import gspread
 from oauth2client.service_account import ServiceAccountCredentials
 from datetime import datetime
 import json
-import win32com.client
+
+# Try importing win32com for local Windows Outlook Classic integration
+try:
+    import win32com.client
+    WIN32_AVAILABLE = True
+except ImportError:
+    WIN32_AVAILABLE = False
 
 st.set_page_config(page_title="Edge RCM - Smart Client Intelligence Dashboard", layout="wide")
 
@@ -29,13 +35,15 @@ t = {
     "Urdu": {
         "title": "🩺 ایج آر سی ایم - سمارٹ کلائنٹ انٹیلیجنس ڈیش بورڈ",
         "subtitle": "مکمل کلائنٹ ہسٹری، آٹومیٹڈ ای میل سنک اور سمارٹ ٹیمپلیٹس کے ساتھ مرکزی نظام۔",
+        "auth": "🔑 تصدیق (Authentication)",
+        "upload": "اپنی credentials.json فائل اپ لوڈ کریں",
         "nav": "نیویگیشن",
         "menu_search": "کلائنٹ ہسٹری اور سمارٹ تلاش",
         "menu_email": "سمارٹ ای میل / ایس ایم ایس ٹیمپلیٹس اور آؤٹ لُک کلاسیک سنک",
         "menu_update": "نوٹس اور ہسٹری مینیجر",
         "search_header": "🔍 کلائنٹ تلاش اور مکمل ہسٹری",
         "search_input": "کلائنٹ کا نام، NPI، یا ای میل درج کریں:",
-        "template_header": "✉️ اے آئی سمارٹ ٹیمپلیٹ جنیریٹر اور آؤٹ لُک کلاسیک سنک",
+        "template_header": "✉️️ اے آئی سمارٹ ٹیمپلیٹ جنیریٹر اور آؤٹ لُک کلاسیک سنک",
         "update_header": "✍ ڈائریکٹ نوٹس اور ہسٹری اپڈیٹر"
     }
 }
@@ -143,37 +151,39 @@ if uploaded_file is not None:
         elif menu == lang["menu_email"]:
             st.header(lang["template_header"])
             
-            with st.expander("📥 Outlook Classic Live Inbox Sync & Save to Sheet"):
-                st.info("Make sure Outlook Classic desktop app is open on your PC to fetch live threads directly and save them to Google Sheets.")
+            with st.expander("📥 Outlook Classic Live Inbox Sync & Save to Sheet", expanded=True):
+                st.info("Make sure Outlook Classic desktop app is open on your Windows PC to fetch live threads directly.")
                 
-                # Default email fetch input
                 default_search_email = "provider@practice.com"
                 provider_email_input = st.text_input("Enter Provider Email to Fetch from Outlook Classic:", value=default_search_email)
                 
-                fetched_summary = ""
                 if st.button("Fetch Emails from Outlook Classic"):
-                    try:
-                        outlook = win32com.client.Dispatch("Outlook.Application").GetNamespace("MAPI")
-                        inbox = outlook.GetDefaultFolder(6) # Inbox
-                        messages = inbox.Items
-                        messages = messages.Restrict(f"[SenderEmailAddress] = '{provider_email_input}'")
-                        
-                        count = 0
-                        for msg in list(messages)[:3]:
-                            fetched_summary += f"\n- [{msg.ReceivedTime}] Subject: {msg.Subject}\n  Snippet: {msg.Body[:120]}...\n"
-                            count += 1
+                    if not WIN32_AVAILABLE:
+                        st.error("pywin32 library is only supported when running locally on Windows with Outlook Classic installed.")
+                    else:
+                        try:
+                            outlook = win32com.client.Dispatch("Outlook.Application").GetNamespace("MAPI")
+                            inbox = outlook.GetDefaultFolder(6)  # Inbox folder
+                            messages = inbox.Items
+                            messages = messages.Restrict(f"[SenderEmailAddress] = '{provider_email_input}'")
                             
-                        if count > 0:
-                            st.success(f"Successfully fetched {count} email thread(s) from Outlook Classic!")
-                            st.session_state['fetched_email_text'] = fetched_summary
-                            st.text_area("Fetched Email Threads Preview:", value=fetched_summary, height=140)
-                        else:
-                            st.warning(f"No emails found from '{provider_email_input}' in your Outlook Classic inbox.")
-                    except Exception as e:
-                        st.error(f"Outlook Classic Error: Ensure Outlook Classic is running on your Windows PC. ({e})")
+                            fetched_summary = ""
+                            count = 0
+                            for msg in list(messages)[:3]:
+                                fetched_summary += f"\n- [{msg.ReceivedTime}] Subject: {msg.Subject}\n  Snippet: {msg.Body[:120]}...\n"
+                                count += 1
+                                
+                            if count > 0:
+                                st.success(f"Successfully fetched {count} email thread(s) from Outlook Classic!")
+                                st.session_state['fetched_email_text'] = fetched_summary
+                            else:
+                                st.warning(f"No emails found from '{provider_email_input}' in your Outlook Classic inbox.")
+                        except Exception as e:
+                            st.error(f"Outlook Classic Error: Ensure Outlook Classic is running. Details: {e}")
 
-                # Save fetched emails directly into Google Sheets client notes
                 if 'fetched_email_text' in st.session_state and st.session_state['fetched_email_text']:
+                    st.text_area("Fetched Email Threads Preview:", value=st.session_state['fetched_email_text'], height=130)
+                    
                     name_col = 'NAME' if 'NAME' in df.columns else df.columns[0]
                     target_client_for_email = st.selectbox("Select Client to Link & Save These Emails:", df[name_col].dropna().unique(), key="client_email_save_selectbox")
                     
@@ -189,11 +199,10 @@ if uploaded_file is not None:
                             # Update local dataframe
                             df.loc[df[name_col] == target_client_for_email, 'CALL NOTES'] = updated_notes
                             
-                            # Update Google Sheet directly
+                            # Update Google Sheet
                             worksheet_to_update = spreadsheet.worksheet(spreadsheet.worksheets()[0].title)
                             cell = worksheet_to_update.find(target_client_for_email)
                             if cell:
-                                # Find column index for CALL NOTES
                                 header_row = worksheet_to_update.row_values(1)
                                 header_row_upper = [h.strip().upper() for h in header_row]
                                 if 'CALL NOTES' in header_row_upper:
@@ -207,6 +216,7 @@ if uploaded_file is not None:
                         except Exception as e:
                             st.error(f"Failed to update Google Sheet: {e}")
 
+            st.markdown("---")
             name_col = 'NAME' if 'NAME' in df.columns else df.columns[0]
             client_options = df[name_col].dropna().unique()
             selected_client = st.selectbox("Select Client for Template:", client_options)
@@ -246,6 +256,8 @@ Edge RCM Team"""
                 st.subheader("📝 Context-Aware Draft:")
                 st.code(generated_text, language="markdown")
                 st.success("Template successfully tailored based on past interactions and email context!")
+
+        elif menu == lang["menu_update"]:
             st.header(lang["update_header"])
             
             name_col = 'NAME' if 'NAME' in df.columns else df.columns[0]
